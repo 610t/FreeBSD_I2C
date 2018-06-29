@@ -1,0 +1,68 @@
+--- button-shim/library/buttonshim/__init__.py.org	2018-06-27 20:54:18.719671000 +0000
++++ button-shim/library/buttonshim/__init__.py	2018-06-28 02:18:21.640175000 +0000
+@@ -1,8 +1,11 @@
+-import smbus
++import subprocess
++import sys
+ import time
+ from threading import Thread
+ import atexit
+ from colorsys import hsv_to_rgb
++i2c_cmd="sudo /home/mutoh/newi2c/pi2c -f /dev/iic1 -a 0x3f -d w -b "
++i2c_read="sudo /home/mutoh/newi2c/pi2c -f /dev/iic1 -a 0x3f -d r -c 1"
+ 
+ try:
+     import queue
+@@ -121,9 +124,9 @@
+         try:
+             if led_data:
+                 for chunk in _chunk(led_data, 32):
+-                    _bus.write_i2c_block_data(ADDR, REG_OUTPUT, chunk)
++                    write_block_data(ADDR,REG_OUTPUT,chunk)
+ 
+-            _states = _bus.read_byte_data(ADDR, REG_INPUT)
++            _states = _read_data(ADDR, REG_INPUT)
+ 
+         except IOError as e:
+             _errors += 1
+@@ -177,17 +180,35 @@
+     _running = False
+     _t_poll.join()
+ 
++def write_block_data(addr,command,chunk):
++    data=""
++    c=0
++    for d in chunk:
++       data+="\\"+str(format(d,'o'))
++       c+=1
++    if(c>0):
++        cmd="printf \"" + data + "\" | " + i2c_cmd + "-c "+str(c)+" -o 0x" + str(command)
++        subprocess.check_output(cmd,shell=True)
++
++def _write_data(addr, command, value):
++    cmd="printf \"\\" + str(oct(value)) + "\" | " + i2c_cmd + "-c 1 -o 0x" + str(command)
++    subprocess.check_output(cmd,shell=True)
++
++def _read_data(addr, cmd):
++    cmd=i2c_read
++    d=subprocess.check_output(cmd.split(),stderr=subprocess.STDOUT)
++    return(int(d,16))
++
+ def setup():
+     global _t_poll, _bus
+ 
+     if _bus is not None:
+         return
+ 
+-    _bus = smbus.SMBus(1)
+-
+-    _bus.write_byte_data(ADDR, REG_CONFIG, 0b00011111)
+-    _bus.write_byte_data(ADDR, REG_POLARITY, 0b00000000)
+-    _bus.write_byte_data(ADDR, REG_OUTPUT, 0b00000000)
++    _bus = 1
++    _write_data(ADDR, REG_CONFIG, 0b00011111)
++    _write_data(ADDR, REG_POLARITY, 0)
++    _write_data(ADDR, REG_OUTPUT, 0)
+ 
+     _t_poll = Thread(target=_run)
+     _t_poll.daemon = True
