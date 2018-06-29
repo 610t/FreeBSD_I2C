@@ -1,5 +1,5 @@
 PROG=   	bh1750
-CFLAGS+=	
+CFLAGS=	
 LDADD=		
 MAN=
 
